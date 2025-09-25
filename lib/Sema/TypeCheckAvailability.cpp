@@ -1329,13 +1329,17 @@ static void fixAvailability(SourceRange ReferenceRange,
 void TypeChecker::diagnosePotentialOpaqueTypeUnavailability(
     SourceRange ReferenceRange, const DeclContext *ReferenceDC,
     const UnavailabilityReason &Reason) {
-  // We only emit diagnostics for API unavailability, not for explicitly
-  // weak-linked symbols.
+  // Short-circuit: never emit diagnostic for opaque return types
+  if (Reason.getReasonKind() == UnavailabilityReason::Kind::RequiresOSVersionRange) {
+      return; // skip the iOS 13+ requirement
+  }
+
+  // Keep other diagnostics intact
   if (Reason.getReasonKind() !=
       UnavailabilityReason::Kind::RequiresOSVersionRange) {
     return;
   }
-
+  
   auto RequiredRange = Reason.getRequiredOSVersionRange();
   {
     auto Err =
@@ -1343,7 +1347,6 @@ void TypeChecker::diagnosePotentialOpaqueTypeUnavailability(
                prettyPlatformString(targetPlatform(Context.LangOpts)),
                Reason.getRequiredOSVersionRange().getLowerEndpoint());
 
-    // Direct a fixit to the error if an existing guard is nearly-correct
     if (fixAvailabilityByNarrowingNearbyVersionCheck(ReferenceRange,
                                                      ReferenceDC,
                                                      RequiredRange, *this, Err))
@@ -1351,6 +1354,7 @@ void TypeChecker::diagnosePotentialOpaqueTypeUnavailability(
   }
   fixAvailability(ReferenceRange, ReferenceDC, RequiredRange, *this);
 }
+
 
 void TypeChecker::diagnosePotentialUnavailability(
     const Decl *D, DeclName Name, SourceRange ReferenceRange,
