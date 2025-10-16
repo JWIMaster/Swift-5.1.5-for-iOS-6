@@ -279,11 +279,11 @@ extension vDSP.VectorizableDouble: vDSP_DFTFunctions {
             
             switch transformType {
             case .complexComplex:
-                return vDSP_DFT_zop_CreateSetupD(previous?.dftSetup,
+                return vDSP_DFT_zop_CreateSetup(previous?.dftSetup,
                                                  vDSP_Length(count),
                                                  direction.dftDirection)
             case .complexReal:
-                return vDSP_DFT_zrop_CreateSetupD(previous?.dftSetup,
+                return vDSP_DFT_zrop_CreateSetup(previous?.dftSetup,
                                                   vDSP_Length(count),
                                                   direction.dftDirection)
             }
@@ -309,7 +309,7 @@ extension vDSP.VectorizableDouble: vDSP_DFTFunctions {
                     outputReal.withUnsafeMutableBufferPointer { Or in
                         outputImaginary.withUnsafeMutableBufferPointer { Oi in
                             
-                            vDSP_DFT_ExecuteD(dftSetup,
+                            vDSP_DFT_Execute(dftSetup,
                                               Ir.baseAddress!,
                                               Ii.baseAddress!,
                                               Or.baseAddress!,
@@ -322,7 +322,7 @@ extension vDSP.VectorizableDouble: vDSP_DFTFunctions {
     
     /// Releases a DFT setup object.
     public static func destroySetup(_ setup: OpaquePointer) {
-        vDSP_DFT_DestroySetupD(setup)
+        vDSP_DFT_DestroySetup(setup)
     }
 }
 
