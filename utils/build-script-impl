@@ -2925,28 +2925,48 @@ for host in "${ALL_HOSTS[@]}"; do
             # builtins for iOS/tvOS/watchOS to ensure that Swift's
             # stdlib can use compiler-rt builtins when targetting iOS/tvOS/watchOS.
             if [[ "${product}" == "llvm" && "${BUILD_LLVM}" == "1" ]]; then
-                if [[ "$(uname -s)" == "Darwin" ]] ; then
+                if [[ "$(uname -s)" == "Darwin" ]]; then
                     HOST_CXX_DIR=$(dirname "${HOST_CXX}")
-                    HOST_CXX_BUILTINS_VERSION=$(ls "$HOST_CXX_DIR/../lib/clang" | awk '{print $0}')
+                    HOST_CXX_BUILTINS_VERSION=$(ls "$HOST_CXX_DIR/../lib/clang" | head -n1)
                     HOST_CXX_BUILTINS_DIR="$HOST_CXX_DIR/../lib/clang/$HOST_CXX_BUILTINS_VERSION/lib/darwin"
-                    DEST_CXX_BUILTINS_VERSION=$(ls "$(build_directory_bin ${host} llvm)/../lib/clang" | awk '{print $0}')
+
+                    DEST_CXX_BUILTINS_VERSION=$(ls "$(build_directory_bin ${host} llvm)/../lib/clang" | head -n1)
                     DEST_BUILTINS_DIR="$(build_directory_bin ${host} llvm)/../lib/clang/$DEST_CXX_BUILTINS_VERSION/lib/darwin"
 
-                    if [ -d "$DEST_BUILTINS_DIR" ]; then
-                        echo "copying compiler-rt embedded builtins into the local clang build directory $DEST_BUILTINS_DIR."
+                    # Local build compiler-rt builtins path
+                    LOCAL_BUILTINS_DIR="$(build_directory ${host} llvm)/tools/clang/runtime/compiler-rt-bins/lib/builtins"
 
-                        if [ -f "$HOST_CXX_BUILTINS_DIR/libclang_rt.ios.a" ]; then
-                            call cp "$HOST_CXX_BUILTINS_DIR/libclang_rt.ios.a" "$DEST_BUILTINS_DIR/libclang_rt.ios.a"
-                        fi
-                        if [ -f "$HOST_CXX_BUILTINS_DIR/libclang_rt.watchos.a" ]; then
-                            call cp "$HOST_CXX_BUILTINS_DIR/libclang_rt.watchos.a" "$DEST_BUILTINS_DIR/libclang_rt.watchos.a"
-                        fi
-                        if [ -f "$HOST_CXX_BUILTINS_DIR/libclang_rt.tvos.a" ]; then
-                            call cp "$HOST_CXX_BUILTINS_DIR/libclang_rt.tvos.a" "$DEST_BUILTINS_DIR/libclang_rt.tvos.a"
+                    echo "Looking for local iOS builtins in: $LOCAL_BUILTINS_DIR"
+                    IOS_DEVICE_LIBS=()
+                    for f in "$LOCAL_BUILTINS_DIR"/libclang_rt.builtins_*_ios.a; do
+                        [ -f "$f" ] && IOS_DEVICE_LIBS+=( "$f" )
+                    done
+
+                    if [ -d "$DEST_BUILTINS_DIR" ]; then
+                        echo "Copying compiler-rt embedded builtins into $DEST_BUILTINS_DIR"
+
+                        if [ ${#IOS_DEVICE_LIBS[@]} -gt 0 ]; then
+                            echo "Local iOS builtins found: ${IOS_DEVICE_LIBS[*]}"
+                            LIPO_OUTPUT="$DEST_BUILTINS_DIR/libclang_rt.ios.a"
+                            echo "Creating universal iOS lib with lipo -> $LIPO_OUTPUT"
+                            lipo -create "${IOS_DEVICE_LIBS[@]}" -output "$LIPO_OUTPUT"
+                        else
+                            # Fallback to host Xcode builtins
+                            echo "Fallback: copying host Xcode libclang_rt.ios.a"
+                            if [ -f "$HOST_CXX_BUILTINS_DIR/libclang_rt.ios.a" ]; then
+                                cp "$HOST_CXX_BUILTINS_DIR/libclang_rt.ios.a" "$DEST_BUILTINS_DIR/libclang_rt.ios.a"
+                            fi
+                            if [ -f "$HOST_CXX_BUILTINS_DIR/libclang_rt.watchos.a" ]; then
+                                cp "$HOST_CXX_BUILTINS_DIR/libclang_rt.watchos.a" "$DEST_BUILTINS_DIR/libclang_rt.watchos.a"
+                            fi
+                            if [ -f "$HOST_CXX_BUILTINS_DIR/libclang_rt.tvos.a" ]; then
+                                cp "$HOST_CXX_BUILTINS_DIR/libclang_rt.tvos.a" "$DEST_BUILTINS_DIR/libclang_rt.tvos.a"
+                            fi
                         fi
                     fi
                 fi
             fi
+
         fi
     done
 done
